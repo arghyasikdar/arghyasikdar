@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HackAdemia – Become a Hacker</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root {
+    --neon-green: #00ff41;
+    --electric-blue: #00d4ff;
+    --cyber-purple: #bf00ff;
+    --dark-bg: #000a00;
+    --panel-bg: rgba(0,10,0,0.92);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--dark-bg); color:var(--neon-green); font-family:'Share Tech Mono',monospace; overflow:hidden; cursor:crosshair; }
+  ::-webkit-scrollbar { width:4px; }
+  ::-webkit-scrollbar-thumb { background:var(--neon-green); }
+
+  /* ── LANDING ── */
+  #landingScreen { position:fixed;inset:0;z-index:100;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden; }
+  #gridCanvas,#particleCanvas { position:absolute;inset:0;width:100%;height:100%; }
+  .scanlines { position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,65,.03) 2px,rgba(0,255,65,.03) 4px);pointer-events:none;z-index:5; }
+  .landing-content { position:relative;z-index:10;text-align:center;display:flex;flex-direction:column;align-items:center;gap:1.8rem; }
+  .glitch-title { font-family:'Orbitron',sans-serif;font-size:clamp(2.5rem,7vw,6rem);font-weight:900;color:var(--neon-green);text-shadow:0 0 20px var(--neon-green),0 0 60px var(--neon-green);position:relative;animation:flicker 4s infinite;letter-spacing:.1em; }
+  .glitch-title::before,.glitch-title::after { content:attr(data-text);position:absolute;top:0;left:0;width:100%;opacity:.8; }
+  .glitch-title::before { color:var(--electric-blue);animation:glitch1 3s infinite;clip-path:polygon(0 0,100% 0,100% 35%,0 35%); }
+  .glitch-title::after { color:var(--cyber-purple);animation:glitch2 3s infinite;clip-path:polygon(0 65%,100% 65%,100% 100%,0 100%); }
+  .subtitle { font-size:clamp(.9rem,2vw,1.2rem);color:var(--electric-blue);letter-spacing:.3em;animation:blink 2s infinite; }
+  #hackBtn { font-family:'Orbitron',sans-serif;font-size:1.3rem;font-weight:700;color:#000;background:var(--neon-green);border:none;padding:1.2rem 3.5rem;cursor:pointer;letter-spacing:.2em;clip-path:polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%);transition:all .2s;text-transform:uppercase;box-shadow:0 0 30px var(--neon-green),0 0 60px rgba(0,255,65,.3);animation:pulseBtn 2s infinite; }
+  #hackBtn:hover { background:var(--electric-blue);box-shadow:0 0 40px var(--electric-blue);transform:scale(1.05); }
+
+  /* ── HACK OVERLAY ── */
+  #hackOverlay { position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.97);display:none;align-items:center;justify-content:center; }
+  #hackTerminal { width:min(700px,95vw);border:1px solid var(--neon-green);box-shadow:0 0 30px var(--neon-green);padding:2rem;background:rgba(0,18,0,.95);position:relative; }
+  .term-header { display:flex;align-items:center;gap:.5rem;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid rgba(0,255,65,.3); }
+  .tdot { width:12px;height:12px;border-radius:50%; }
+  #hackLines { min-height:220px;font-size:clamp(.85rem,1.5vw,1rem);line-height:1.9; }
+  .hl { display:flex;align-items:center;gap:.5rem;opacity:0;animation:fadeIn .3s forwards; }
+  .hl.proc { color:var(--electric-blue); }
+  .hl.ok { color:var(--neon-green); }
+  .hl.warn { color:#ffcc00; }
+  .hl.granted { color:var(--neon-green);font-size:1.6em;font-weight:bold;text-shadow:0 0 25px var(--neon-green); }
+  .pbar-wrap { margin-top:1.5rem;height:6px;background:rgba(0,255,65,.1);border:1px solid rgba(0,255,65,.3);overflow:hidden; }
+  #hackProgress { height:100%;width:0%;background:linear-gradient(90deg,var(--neon-green),var(--electric-blue));transition:width .3s;box-shadow:0 0 10px var(--neon-green); }
+
+  /* ── CANVAS / HUD ── */
+  #threeCanvas { position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;display:none; }
+  #hud { position:fixed;inset:0;z-index:10;pointer-events:none;display:none; }
+  .hud-c { position:absolute;font-size:.72rem;color:rgba(0,255,65,.55);padding:1rem;font-family:'Share Tech Mono',monospace; }
+  .htl { top:0;left:0; } .htr { top:0;right:0;text-align:right; } .hbl { bottom:0;left:0; } .hbr { bottom:0;right:0;text-align:right; }
+  .bracket { position:absolute;width:28px;height:28px; }
+  .btl { top:8px;left:8px;border-top:2px solid var(--neon-green);border-left:2px solid var(--neon-green); }
+  .btr { top:8px;right:8px;border-top:2px solid var(--neon-green);border-right:2px solid var(--neon-green); }
+  .bbl { bottom:8px;left:8px;border-bottom:2px solid var(--neon-green);border-left:2px solid var(--neon-green); }
+  .bbr { bottom:8px;right:8px;border-bottom:2px solid var(--neon-green);border-right:2px solid var(--neon-green); }
+  #clickPrompt { position:fixed;bottom:55px;left:50%;transform:translateX(-50%);z-index:11;color:var(--electric-blue);font-size:.85rem;letter-spacing:.2em;animation:blink 1.5s infinite;pointer-events:none;display:none;text-align:center; }
+  .floatlabel { position:fixed;background:rgba(0,255,65,.1);border:1px solid var(--neon-green);color:var(--neon-green);font-size:.75rem;padding:.3rem .8rem;pointer-events:none;opacity:0;transition:opacity .3s;z-index:15;text-transform:uppercase;box-shadow:0 0 10px rgba(0,255,65,.3); }
+
+  /* ── MODALS ── */
+  .modal-ov { position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px); }
+  .modal-ov.active { display:flex; }
+  .modal-box { width:min(640px,95vw);max-height:90vh;overflow-y:auto;background:rgba(0,6,0,.98);border:1px solid var(--neon-green);box-shadow:0 0 40px var(--neon-green),0 0 80px rgba(0,255,65,.15);padding:2.5rem;position:relative;animation:modalIn .3s ease; }
+  .modal-title { font-family:'Orbitron',sans-serif;font-size:clamp(1.1rem,3vw,1.7rem);font-weight:900;color:var(--neon-green);text-shadow:0 0 15px var(--neon-green);margin-bottom:1.5rem;text-transform:uppercase;letter-spacing:.1em; }
+  .mclose { position:absolute;top:1rem;right:1rem;background:none;border:1px solid rgba(0,255,65,.4);color:var(--neon-green);cursor:pointer;width:32px;height:32px;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:all .2s;font-family:'Share Tech Mono',monospace; }
+  .mclose:hover { background:rgba(0,255,65,.2);box-shadow:0 0 10px var(--neon-green); }
+
+  /* courses */
+  .course-item { border:1px solid rgba(0,255,65,.2);padding:1rem 1.2rem;margin-bottom:.8rem;background:rgba(0,255,65,.02);transition:all .2s;cursor:pointer; }
+  .course-item:hover { border-color:var(--electric-blue);background:rgba(0,212,255,.05);box-shadow:0 0 10px rgba(0,212,255,.2); }
+  .ctitle { font-family:'Orbitron',sans-serif;font-size:.9rem;color:var(--electric-blue);margin-bottom:.3rem; }
+  .cdesc { font-size:.8rem;color:rgba(0,255,65,.65); }
+  .ctag { display:inline-block;background:rgba(191,0,255,.2);border:1px solid var(--cyber-purple);color:var(--cyber-purple);font-size:.68rem;padding:.1rem .5rem;margin-top:.4rem; }
+
+  /* game */
+  .glevel { font-family:'Orbitron',sans-serif;color:var(--cyber-purple);font-size:.85rem;margin-bottom:.5rem;text-shadow:0 0 10px var(--cyber-purple); }
+  .gquestion { font-size:1.05rem;color:#fff;margin-bottom:1.5rem;line-height:1.6; }
+  .gopt { display:block;width:100%;background:rgba(0,255,65,.04);border:1px solid rgba(0,255,65,.3);color:var(--neon-green);font-family:'Share Tech Mono',monospace;font-size:.95rem;padding:.9rem 1.2rem;margin-bottom:.7rem;cursor:pointer;text-align:left;transition:all .2s;clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%); }
+  .gopt:hover { background:rgba(0,255,65,.14);box-shadow:0 0 15px rgba(0,255,65,.3);transform:translateX(4px); }
+  .gopt.correct { background:rgba(0,255,65,.28);border-color:var(--neon-green);box-shadow:0 0 20px var(--neon-green); }
+  .gopt.wrong { background:rgba(255,0,64,.2);border-color:#ff0040; }
+  .game-result { text-align:center;display:none;padding:1rem; }
+  .game-result h2 { font-family:'Orbitron',sans-serif;font-size:2rem;color:var(--neon-green);text-shadow:0 0 30px var(--neon-green);animation:pulseText 1s infinite;margin-bottom:1rem; }
+
+  /* quiz */
+  .qprog { display:flex;gap:.4rem;margin-bottom:1.5rem; }
+  .qdot { flex:1;height:4px;background:rgba(0,255,65,.2);border-radius:2px;transition:background .3s; }
+  .qdot.active { background:var(--neon-green);box-shadow:0 0 8px var(--neon-green); }
+  .qnum { font-size:.78rem;color:rgba(0,255,65,.5);margin-bottom:.5rem;letter-spacing:.2em; }
+  .qquestion { font-size:1rem;color:#fff;margin-bottom:1.4rem;line-height:1.7; }
+  .qopt { display:block;width:100%;background:rgba(0,255,65,.02);border:1px solid rgba(0,255,65,.22);color:var(--neon-green);font-family:'Share Tech Mono',monospace;font-size:.88rem;padding:.75rem 1rem;margin-bottom:.55rem;cursor:pointer;text-align:left;transition:all .2s; }
+  .qopt:hover { background:rgba(0,212,255,.07);border-color:var(--electric-blue);color:var(--electric-blue); }
+  .quiz-result { text-align:center;display:none; }
+  .hack-meter { font-family:'Orbitron',sans-serif;font-size:4rem;font-weight:900;margin:1rem 0; }
+  .hbar-wrap { height:12px;background:rgba(0,255,65,.1);border:1px solid rgba(0,255,65,.3);margin:.5rem 0 1.5rem;overflow:hidden; }
+  .hbar-fill { height:100%;transition:width 1.5s ease;width:0%; }
+
+  /* terminal modal */
+  .term-body { font-size:.88rem;line-height:1.9;color:var(--neon-green); }
+  .tline { display:flex;align-items:center;gap:.5rem; }
+  .tprompt { color:var(--cyber-purple); }
+  .tinput-row { display:flex;align-items:center;gap:.5rem;margin-top:1rem; }
+  .tinput { background:transparent;border:none;border-bottom:1px solid var(--neon-green);color:var(--neon-green);font-family:'Share Tech Mono',monospace;font-size:1rem;outline:none;flex:1;padding:.3rem; }
+  .tsub { background:var(--neon-green);border:none;color:#000;font-family:'Orbitron',sans-serif;font-size:.78rem;padding:.4rem .8rem;cursor:pointer;font-weight:700;transition:all .2s; }
+  .tsub:hover { background:var(--electric-blue); }
+
+  /* form */
+  .fgroup { margin-bottom:1.1rem; }
+  .flabel { display:block;font-size:.78rem;color:rgba(0,255,65,.55);margin-bottom:.4rem;letter-spacing:.2em;text-transform:uppercase; }
+  .finput { width:100%;background:rgba(0,255,65,.03);border:1px solid rgba(0,255,65,.3);border-bottom:1px solid var(--neon-green);color:var(--neon-green);font-family:'Share Tech Mono',monospace;font-size:.93rem;padding:.65rem .9rem;outline:none;transition:all .2s; }
+  .finput:focus { border-color:var(--electric-blue);box-shadow:0 0 15px rgba(0,212,255,.2);color:var(--electric-blue); }
+  .fsub { width:100%;background:var(--neon-green);border:none;color:#000;font-family:'Orbitron',sans-serif;font-size:1.05rem;font-weight:900;padding:1rem;cursor:pointer;text-transform:uppercase;letter-spacing:.2em;clip-path:polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%);transition:all .2s;box-shadow:0 0 20px var(--neon-green);margin-top:.4rem; }
+  .fsub:hover { background:var(--electric-blue);box-shadow:0 0 30px var(--electric-blue); }
+  .mission-ok { text-align:center;display:none;padding:1rem; }
+  .mission-ok h2 { font-family:'Orbitron',sans-serif;font-size:1.9rem;font-weight:900;color:var(--neon-green);text-shadow:0 0 30px var(--neon-green);margin-bottom:.5rem;animation:pulseText 1s infinite; }
+  .mission-ok p { color:var(--electric-blue);margin-bottom:1.5rem;font-size:.88rem;line-height:1.8; }
+  .share-title { font-family:'Orbitron',sans-serif;font-size:.85rem;color:var(--cyber-purple);margin-bottom:.9rem;letter-spacing:.2em;text-transform:uppercase; }
+  .share-btns { display:flex;gap:.8rem;justify-content:center;flex-wrap:wrap; }
+  .sbtn { font-family:'Orbitron',sans-serif;font-size:.72rem;font-weight:700;padding:.65rem 1.3rem;border:none;cursor:pointer;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;display:inline-flex;align-items:center;gap:.4rem;clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%);transition:all .2s; }
+  .swa { background:#25D366;color:#000; } .swa:hover { box-shadow:0 0 20px #25D366; }
+  .sig { background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);color:#fff; } .sig:hover { box-shadow:0 0 20px #cc2366; }
+  .sdc { background:#5865F2;color:#fff; } .sdc:hover { box-shadow:0 0 20px #5865F2; }
+
+  /* billboard */
+  .bb-content { text-align:center; }
+  .bb-date { font-size:2rem;font-family:'Orbitron',sans-serif;color:var(--cyber-purple);text-shadow:0 0 20px var(--cyber-purple);margin:1rem 0;animation:pulseText 2s infinite; }
+  .bb-detail { font-size:.83rem;color:rgba(0,255,65,.65);line-height:1.8;margin-bottom:.3rem; }
+  .regnow { background:linear-gradient(90deg,var(--cyber-purple),var(--electric-blue));border:none;color:#fff;font-family:'Orbitron',sans-serif;font-size:.95rem;font-weight:700;padding:.85rem 2.4rem;cursor:pointer;letter-spacing:.1em;margin-top:1rem;clip-path:polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%);transition:all .2s; }
+  .regnow:hover { transform:scale(1.04);box-shadow:0 0 30px var(--cyber-purple); }
+
+  /* shared cta button */
+  .cta-btn { width:100%;background:rgba(0,255,65,.08);border:1px solid rgba(0,255,65,.4);color:var(--neon-green);font-family:'Orbitron',sans-serif;font-size:.88rem;font-weight:700;padding:.8rem;cursor:pointer;text-transform:uppercase;letter-spacing:.15em;transition:all .2s;margin-top:.8rem; }
+  .cta-btn:hover { background:rgba(0,255,65,.18);box-shadow:0 0 15px rgba(0,255,65,.3); }
+
+  /* ── ANIMATIONS ── */
+  @keyframes flicker { 0%,90%,100%{opacity:1} 91%{opacity:.4} 92%{opacity:1} 93%{opacity:.2} 94%{opacity:1} }
+  @keyframes glitch1 { 0%,100%{transform:translate(0)} 20%{transform:translate(-3px,1px)} 40%{transform:translate(3px,-1px)} 60%{transform:translate(-1px,2px)} }
+  @keyframes glitch2 { 0%,100%{transform:translate(0)} 20%{transform:translate(3px,-1px)} 40%{transform:translate(-2px,1px)} 60%{transform:translate(2px,-2px)} }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+  @keyframes pulseBtn { 0%,100%{box-shadow:0 0 30px var(--neon-green),0 0 60px rgba(0,255,65,.3)} 50%{box-shadow:0 0 50px var(--neon-green),0 0 100px rgba(0,255,65,.5)} }
+  @keyframes pulseText { 0%,100%{text-shadow:0 0 20px currentColor} 50%{text-shadow:0 0 40px currentColor,0 0 80px currentColor} }
+  @keyframes fadeIn { to{opacity:1} }
+  @keyframes modalIn { from{opacity:0;transform:translateY(-18px) scale(.96)} to{opacity:1;transform:translateY(0) scale(1)} }
+  @media(max-width:600px){ .modal-box{padding:1.4rem} .share-btns{flex-direction:column;align-items:center} }
+</style>
+</head>
+<body>
+
+<!-- LANDING -->
+<div id="landingScreen">
+  <canvas id="gridCanvas"></canvas>
+  <canvas id="particleCanvas"></canvas>
+  <div class="scanlines"></div>
+  <div class="landing-content">
+    <div style="font-family:'Share Tech Mono';font-size:.75rem;color:rgba(0,255,65,.4);letter-spacing:.4em;">// CYBERSECURITY TRAINING SIMULATION //</div>
+    <div class="glitch-title" data-text="HACKADEMIA">HACKADEMIA</div>
+    <div class="subtitle">&gt;&nbsp;BECOME A HACKER&nbsp;&lt;</div>
+    <button id="hackBtn" onclick="startHack()">⚡ INITIATE HACK</button>
+    <div style="color:rgba(0,255,65,.3);font-size:.72rem;letter-spacing:.25em;">[ WARNING: AUTHORIZED ACCESS ONLY ]</div>
+  </div>
+</div>
+
+<!-- HACK OVERLAY -->
+<div id="hackOverlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.97);align-items:center;justify-content:center;">
+  <div id="hackTerminal">
+    <div class="term-header">
+      <div class="tdot" style="background:#ff5f57"></div>
+      <div class="tdot" style="background:#ffbd2e"></div>
+      <div class="tdot" style="background:#28ca42"></div>
+      <span style="flex:1;text-align:center;font-size:.78rem;color:rgba(0,255,65,.55);letter-spacing:.2em;">root@hackademia:~# BREACH PROTOCOL ACTIVE</span>
+    </div>
+    <div id="hackLines"></div>
+    <div class="pbar-wrap"><div id="hackProgress"></div></div>
+  </div>
+</div>
+
+<!-- THREE.JS CANVAS -->
+<canvas id="threeCanvas"></canvas>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="bracket btl"></div><div class="bracket btr"></div>
+  <div class="bracket bbl"></div><div class="bracket bbr"></div>
+  <div class="hud-c htl"><div>SYS: ACTIVE</div><div>USER: HACKER_01</div><div id="hudTime">--:--:--</div></div>
+  <div class="hud-c htr"><div>THREAT: LOW</div><div>FIREWALL: BYPASSED</div><div>ACCESS: GRANTED</div></div>
+  <div class="hud-c hbl"><div>HACKADEMIA v2.0</div><div>ENV: HACKER_ROOM</div></div>
+  <div class="hud-c hbr"><div>CLICK OBJECTS TO INTERACT</div><div id="hudFps">FPS: --</div></div>
+</div>
+<div id="clickPrompt">[ CLICK ON GLOWING OBJECTS TO INTERACT ]</div>
+<div class="floatlabel" id="floatLabel"></div>
+
+<!-- COURSES MODAL -->
+<div class="modal-ov" id="coursesModal">
+  <div class="modal-box">
+    <button class="mclose" onclick="closeModal('coursesModal')">✕</button>
+    <div class="modal-title">// CYBERSECURITY COURSES</div>
+    <div class="course-item"><div class="ctitle">ETHICAL HACKING FUNDAMENTALS</div><div class="cdesc">Penetration testing, network scanning, and vulnerability basics.</div><span class="ctag">BEGINNER</span></div>
+    <div class="course-item"><div class="ctitle">SOCIAL ENGINEERING DEFENSE</div><div class="cdesc">Phishing, pretexting, and protecting your organization from human attacks.</div><span class="ctag">INTERMEDIATE</span></div>
+    <div class="course-item"><div class="ctitle">CRYPTOGRAPHY & ENCRYPTION</div><div class="cdesc">From Caesar ciphers to AES-256. Secure data the hacker way.</div><span class="ctag">INTERMEDIATE</span></div>
+    <div class="course-item"><div class="ctitle">LIVE CTFs & HACKING LABS</div><div class="cdesc">Real-world hacking challenges. Hack legally, win prizes, build your resume.</div><span class="ctag">ADVANCED</span></div>
+    <button class="fsub" style="margin-top:1rem;" onclick="closeModal('coursesModal');openModal('signupModal')">ENROLL NOW →</button>
+  </div>
+</div>
+
+<!-- GAME MODAL -->
+<div class="modal-ov" id="gameModal">
+  <div class="modal-box">
+    <button class="mclose" onclick="closeModal('gameModal')">✕</button>
+    <div class="modal-title">⚔ HACKER TRAINING SIM</div>
+    <div id="gameContent">
+      <div class="glevel">▶ LEVEL 1 – PASSWORD CRACKER</div>
+      <div class="gquestion">Which password would a hacker crack <em style="color:#ffcc00">FIRST</em>?</div>
+      <button class="gopt" onclick="checkGame(this,true)">123456</button>
+      <button class="gopt" onclick="checkGame(this,false)">SuperSecure!98</button>
+      <button class="gopt" onclick="checkGame(this,false)">MyD0gN@me2025!</button>
+    </div>
+    <div class="game-result" id="gameResult">
+      <h2>✓ PASSWORD CRACKED</h2>
+      <p style="color:var(--neon-green);margin-bottom:.5rem;font-size:1.1rem;">You have hacker instincts.</p>
+      <p style="font-size:.83rem;color:rgba(0,255,65,.6);line-height:1.8;margin-bottom:1.5rem;">"123456" is cracked in &lt; 0.001 seconds.<br>Used by over 23 million accounts worldwide.</p>
+      <button class="fsub" onclick="closeModal('gameModal');openModal('quizModal');initQuiz()">TAKE HACKABILITY QUIZ →</button>
+    </div>
+  </div>
+</div>
+
+<!-- QUIZ MODAL -->
+<div class="modal-ov" id="quizModal">
+  <div class="modal-box">
+    <button class="mclose" onclick="closeModal('quizModal')">✕</button>
+    <div class="modal-title">🔍 ARE YOU HACKABLE?</div>
+    <div class="qprog" id="quizProg"></div>
+    <div id="quizContent"></div>
+    <div class="quiz-result" id="quizResult">
+      <p style="font-size:.78rem;color:rgba(0,255,65,.45);letter-spacing:.2em;margin-bottom:.5rem;">YOUR HACKABILITY SCORE</p>
+      <div class="hack-meter" id="hackScore"></div>
+      <div class="hbar-wrap"><div class="hbar-fill" id="hackFill"></div></div>
+      <p id="hackMsg" style="color:var(--electric-blue);margin-bottom:1.5rem;font-size:.88rem;line-height:1.8;"></p>
+      <button class="fsub" onclick="closeModal('quizModal');openModal('terminalModal')">UNLOCK WORKSHOP TERMINAL →</button>
+    </div>
+  </div>
+</div>
+
+<!-- TERMINAL MODAL -->
+<div class="modal-ov" id="terminalModal">
+  <div class="modal-box">
+    <button class="mclose" onclick="closeModal('terminalModal')">✕</button>
+    <div class="modal-title">&gt;_ WORKSHOP TERMINAL</div>
+    <div class="term-body">
+      <div class="tline"><span class="tprompt">root@hackademia:~#</span>&nbsp;<span style="color:#fff">./register_for_workshop.exe</span></div>
+      <br>
+      <div class="tline" style="color:var(--electric-blue);">[INFO] Verifying hacker credentials...</div>
+      <div class="tline" style="color:#ffcc00;margin:.3rem 0;">[AUTH] Access requires beginner verification</div>
+      <br>
+      <div style="color:#fff;margin-bottom:.5rem;">SECURITY QUESTION:</div>
+      <div style="color:var(--cyber-purple);font-size:1.15rem;margin-bottom:1rem;">What port does HTTP use?</div>
+      <div class="tinput-row">
+        <span class="tprompt">&gt;</span>
+        <input type="text" class="tinput" id="termInput" placeholder="enter answer..." onkeypress="if(event.key==='Enter')checkTerminal()">
+        <button class="tsub" onclick="checkTerminal()">ENTER</button>
+      </div>
+      <div id="termResult" style="margin-top:1rem;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SIGNUP MODAL -->
+<div class="modal-ov" id="signupModal">
+  <div class="modal-box">
+    <button class="mclose" onclick="closeModal('signupModal')">✕</button>
+    <div id="formSection">
+      <div class="modal-title">📋 WORKSHOP ACCESS FORM</div>
+      <p style="font-size:.78rem;color:rgba(0,255,65,.45);margin-bottom:1.4rem;letter-spacing:.08em;">Complete your profile to join the HackAdemia Workshop. Limited slots available.</p>
+      <div class="fgroup"><label class="flabel">[ NAME ]</label><input type="text" class="finput" id="fname" placeholder="Agent_Name"></div>
+      <div class="fgroup"><label class="flabel">[ EMAIL ]</label><input type="email" class="finput" id="femail" placeholder="agent@domain.com"></div>
+      <div class="fgroup"><label class="flabel">[ PHONE ]</label><input type="tel" class="finput" id="fphone" placeholder="+91 XXXXX XXXXX"></div>
+      <div class="fgroup"><label class="flabel">[ SCHOOL / COLLEGE ]</label><input type="text" class="finput" id="fschool" placeholder="Institution name"></div>
+      <button class="fsub" onclick="submitForm()">⚡ SUBMIT MISSION DATA</button>
+    </div>
+    <div class="mission-ok" id="missionOk">
+      <div style="font-size:2.8rem;margin-bottom:1rem;">🎯</div>
+      <h2>MISSION ACCEPTED</h2>
+      <p>You are now on the hacker path.<br>Workshop details will be sent to your email soon.<br><span style="color:var(--neon-green);">Welcome to HAckAdemia.</span></p>
+      <div class="share-title">[ INVITE A FRIEND TO TEST THEIR SKILLS ]</div>
+      <div class="share-btns">
+        <a href="https://wa.me/?text=Test+your+hacker+skills+at+CyberQuest!+https%3A%2F%2Fcyberquest.io" target="_blank" class="sbtn swa">📱 WhatsApp</a>
+        <a href="https://www.instagram.com/" target="_blank" class="sbtn sig">📸 Instagram</a>
+        <a href="https://discord.com/" target="_blank" class="sbtn sdc">💬 Discord</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BILLBOARD MODAL -->
+<div class="modal-ov" id="billboardModal">
+  <div class="modal-box">
+    <button class="mclose" onclick="closeModal('billboardModal')">✕</button>
+    <div class="bb-content">
+      <div class="modal-title" style="color:var(--cyber-purple);text-shadow:0 0 15px var(--cyber-purple);">📡 FREE WORKSHOP</div>
+      <h2 style="font-family:'Orbitron';font-size:1.3rem;color:var(--electric-blue);text-shadow:0 0 20px var(--electric-blue);margin-bottom:.5rem;">HACKADEMIA BOOTCAMP</h2>
+      <div style="font-size:.8rem;color:rgba(0,212,255,.55);letter-spacing:.3em;margin-bottom:1rem;">ETHICAL HACKING FOR BEGINNERS</div>
+      <div class="bb-date">COMING SOON</div>
+      <div class="bb-detail">📍 Online</div>
+      <div class="bb-detail">⏱ Duration: 2-Day Intensive</div>
+      <div class="bb-detail">💰 100% FREE for Students</div>
+      <div class="bb-detail">🏆 Certificate Included</div>
+      <div style="margin:1rem 0;padding:1rem;border:1px solid rgba(191,0,255,.3);background:rgba(191,0,255,.04);">
+        <div style="color:rgba(0,255,65,.65);font-size:.8rem;line-height:1.9;">✓ Password Cracking Demo&nbsp;&nbsp;✓ Actual Web Attack Simulation<br>✓ Live CTF Challenge&nbsp;&nbsp;✓ Career in Cybersecurity Talk</div>
+      </div>
+      <button class="regnow" onclick="closeModal('billboardModal');openModal('signupModal')">REGISTER NOW – FREE →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ────────────────────────────────────────────────
+//  LANDING CANVAS
+// ────────────────────────────────────────────────
+const gCvs = document.getElementById('gridCanvas'), gCtx = gCvs.getContext('2d');
+const pCvs = document.getElementById('particleCanvas'), pCtx = pCvs.getContext('2d');
+
+function resize() {
+  gCvs.width = pCvs.width = innerWidth;
+  gCvs.height = pCvs.height = innerHeight;
+  drawGrid();
+}
+
+function drawGrid() {
+  const W = gCvs.width, H = gCvs.height;
+  gCtx.clearRect(0,0,W,H);
+  gCtx.strokeStyle = 'rgba(0,255,65,.07)'; gCtx.lineWidth = 1;
+  for (let x=0;x<=W;x+=50){ gCtx.beginPath();gCtx.moveTo(x,0);gCtx.lineTo(x,H);gCtx.stroke(); }
+  for (let y=0;y<=H;y+=50){ gCtx.beginPath();gCtx.moveTo(0,y);gCtx.lineTo(W,y);gCtx.stroke(); }
+  const g = gCtx.createRadialGradient(W/2,H*.55,0,W/2,H*.55,W*.65);
+  g.addColorStop(0,'rgba(0,80,30,.35)'); g.addColorStop(1,'transparent');
+  gCtx.fillStyle=g; gCtx.fillRect(0,0,W,H);
+}
+
+const parts = Array.from({length:130},()=>({
+  x:Math.random()*innerWidth, y:Math.random()*innerHeight,
+  vx:(Math.random()-.5)*.4, vy:(Math.random()-.5)*.4,
+  r:Math.random()*1.5+.5, a:Math.random()*.5+.2,
+  c:['#00ff41','#00d4ff','#bf00ff'][Math.floor(Math.random()*3)]
+}));
+
+function loopParticles() {
+  if (document.getElementById('landingScreen').style.display !== 'none') {
+    pCtx.clearRect(0,0,pCvs.width,pCvs.height);
+    parts.forEach(p => {
+      p.x+=p.vx; p.y+=p.vy;
+      if(p.x<0)p.x=pCvs.width; if(p.x>pCvs.width)p.x=0;
+      if(p.y<0)p.y=pCvs.height; if(p.y>pCvs.height)p.y=0;
+      pCtx.globalAlpha=p.a; pCtx.fillStyle=p.c;
+      pCtx.beginPath(); pCtx.arc(p.x,p.y,p.r,0,Math.PI*2); pCtx.fill();
+    });
+    pCtx.globalAlpha=1;
+  }
+  requestAnimationFrame(loopParticles);
+}
+resize(); loopParticles();
+window.addEventListener('resize',resize);
+
+// ────────────────────────────────────────────────
+//  HACK SIMULATION
+// ────────────────────────────────────────────────
+const HACK_SCRIPT = [
+  {t:'> Initializing HackAdemia Protocol v2.0...',c:'proc',d:150},
+  {t:'> Scanning network 192.168.1.0/24...',c:'proc',d:550},
+  {t:'> Discovered 47 active hosts ✓',c:'ok',d:950},
+  {t:'> Targeting: PASSWORD_DATABASE.sql',c:'warn',d:1350},
+  {t:'> Running dictionary attack... [████░░░░░░] 40%',c:'proc',d:1700},
+  {t:'> Trying: "admin123" ... FAILED',c:'warn',d:2000},
+  {t:'> Trying: "password" ... FAILED',c:'warn',d:2280},
+  {t:'> Switching to brute force...',c:'proc',d:2550},
+  {t:'> Bypassing firewall via port 8080...',c:'proc',d:2850},
+  {t:'> Firewall rules: OVERRIDDEN ✓',c:'ok',d:3250},
+  {t:'> Decrypting AES-256 payload...',c:'proc',d:3550},
+  {t:'> Injecting auth bypass module...',c:'proc',d:3900},
+  {t:'> Preparing hacker environment...',c:'ok',d:4250},
+  {t:'> [██████████████████████████] 100%',c:'ok',d:4650},
+  {t:'> ✓✓✓  ACCESS GRANTED  ✓✓✓',c:'granted',d:5050},
+];
+
+function startHack() {
+  document.getElementById('landingScreen').style.display='none';
+  const ov = document.getElementById('hackOverlay');
+  ov.style.display='flex';
+  const box = document.getElementById('hackLines');
+  box.innerHTML='';
+  let maxD=0;
+  HACK_SCRIPT.forEach(({t,c,d},i) => {
+    setTimeout(()=>{
+      const div=document.createElement('div');
+      div.className=`hl ${c}`; div.innerHTML=`<span>${t}</span>`;
+      box.appendChild(div); box.scrollTop=box.scrollHeight;
+      document.getElementById('hackProgress').style.width=Math.round((i+1)/HACK_SCRIPT.length*100)+'%';
+    },d);
+    maxD=Math.max(maxD,d);
+  });
+  setTimeout(()=>{ ov.style.display='none'; showRoom(); }, maxD+900);
+}
+
+// ────────────────────────────────────────────────
+//  THREE.JS ROOM
+// ────────────────────────────────────────────────
+let scene,camera,renderer,raycaster,mouse3;
+let clickables=[], camTX=0, camTY=0;
+let fpsCnt=0, fpsT=performance.now();
+
+const LABEL_MAP = {
+  laptop:{label:'💻 CYBERSECURITY COURSES',modal:'coursesModal'},
+  arcade:{label:'🎮 HACKER MINI GAME',modal:'gameModal'},
+  terminal:{label:'⚡ WORKSHOP TERMINAL',modal:'terminalModal'},
+  billboard:{label:'📡 FREE WORKSHOP INFO',modal:'billboardModal'},
+};
+
+function showRoom() {
+  document.getElementById('threeCanvas').style.display='block';
+  document.getElementById('hud').style.display='block';
+  document.getElementById('clickPrompt').style.display='block';
+  initThree();
+  updateClock(); setInterval(updateClock,1000);
+}
+
+function updateClock() {
+  document.getElementById('hudTime').textContent = new Date().toTimeString().slice(0,8);
+}
+
+function initThree() {
+  const cvs = document.getElementById('threeCanvas');
+  renderer = new THREE.WebGLRenderer({canvas:cvs,antialias:true});
+  renderer.setSize(innerWidth,innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.shadowMap.enabled=true;
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x000500);
+  scene.fog = new THREE.FogExp2(0x000500,0.045);
+
+  camera = new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,80);
+  camera.position.set(0,3,9); camera.lookAt(0,1.5,0);
+
+  raycaster = new THREE.Raycaster();
+  mouse3 = new THREE.Vector2();
+
+  buildScene();
+
+  cvs.addEventListener('mousemove',onMM);
+  cvs.addEventListener('click',onMC);
+  window.addEventListener('resize',()=>{
+    camera.aspect=innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth,innerHeight);
+  });
+  renderLoop();
+}
+
+function mat(opts) { return new THREE.MeshStandardMaterial(opts); }
+function box(w,h,d,m) { return new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m); }
+
+function buildScene() {
+  const M = {
+    floor: mat({color:0x080808,roughness:.85,metalness:.1}),
+    wall:  mat({color:0x040408,roughness:.95}),
+    desk:  mat({color:0x150a22,roughness:.5,metalness:.55}),
+    dark:  mat({color:0x0a0a0a,roughness:.25,metalness:.92}),
+    green: mat({color:0x00ff41,emissive:0x00ff41,emissiveIntensity:.9}),
+    blue:  mat({color:0x00d4ff,emissive:0x00d4ff,emissiveIntensity:.9}),
+    purple:mat({color:0xbf00ff,emissive:0xbf00ff,emissiveIntensity:.9}),
+    screen:mat({color:0x001205,emissive:0x00ff41,emissiveIntensity:.4}),
+    screenBlue:mat({color:0x000a12,emissive:0x00d4ff,emissiveIntensity:.5}),
+    screenPurple:mat({color:0x050012,emissive:0xbf00ff,emissiveIntensity:.4}),
+  };
+
+  // floor
+  const fl = box(24,0.05,24,M.floor); fl.position.y=-.025; fl.receiveShadow=true; scene.add(fl);
+  const grid = new THREE.GridHelper(24,24,0x00ff41,0x002208); grid.position.y=.03; scene.add(grid);
+
+  // walls
+  [
+    [24,10,0,-5,5,0,0],
+    [14,10,0,-7,5,0,Math.PI/2],
+    [14,10,0,7,5,0,-Math.PI/2],
+  ].forEach(([w,h,_,x,y,__,ry])=>{
+    const m=box(w,h,.15,M.wall); m.position.set(x,y,__);
+    if(ry) m.rotation.y=ry; scene.add(m);
+  });
+  // ceiling
+  const ceil=box(24,0.1,14,M.wall); ceil.position.set(0,10,0); scene.add(ceil);
+
+  // neon ceiling strips
+  [-4,-2,0,2,4].forEach(x=>{
+    const s=box(.06,0.04,14,M.green); s.position.set(x,9.85,0); scene.add(s);
+    const pl=new THREE.PointLight(0x00ff41,.15,5); pl.position.set(x,9.6,0); scene.add(pl);
+  });
+
+  // DESK
+  const desk=box(5,.15,2,M.desk); desk.position.set(0,1.2,-2.5); desk.castShadow=true; scene.add(desk);
+  [[-.23,-1.1,-3.2],[.23,-1.1,-3.2],[-.23,-1.1,-1.9],[.23,-1.1,-1.9]].map(([x,y,z])=>{
+    const leg=box(.1,1.2,.1,M.dark); leg.position.set(x*10,1.2+y/2,z); scene.add(leg);
+  });
+  // desk neon edge
+  const dedge=box(5.05,.04,.04,M.blue); dedge.position.set(0,1.28,-1.61); scene.add(dedge);
+
+  // ── LAPTOP ──
+  const lg=new THREE.Group(); lg.position.set(-1.2,1.28,-2.8); lg.name='laptop';
+  const lbase=box(1.2,.06,.9,M.dark); lbase.position.y=0; lg.add(lbase);
+  const lscr=box(1.15,.82,.05,M.dark); lscr.position.set(0,.45,-0.42); lscr.rotation.x=-.18; lg.add(lscr);
+  const ldisp=box(1.05,.72,.01,M.screen); ldisp.position.set(0,.45,-0.39); ldisp.rotation.x=-.18; lg.add(ldisp);
+  for(let i=0;i<6;i++){
+    const ln=box(.45+Math.random()*.35,.025,.005,mat({color:0x00ff41,emissive:0x00ff41,emissiveIntensity:1.5}));
+    ln.position.set(-.05+Math.random()*.08,.18+i*.09,-.385); ln.rotation.x=-.18; lg.add(ln);
+  }
+  scene.add(lg);
+  clickables.push({mesh:lbase,name:'laptop'}); clickables.push({mesh:ldisp,name:'laptop'});
+  const lgl=new THREE.PointLight(0x00ff41,.5,3); lgl.position.set(-1.2,1.9,-2.6); scene.add(lgl);
+
+  // ── SECOND MONITOR ──
+  const mg=new THREE.Group(); mg.position.set(1.5,1.28,-2.9); mg.name='terminal';
+  const mmon=box(1,.72,.08,M.dark); mmon.position.y=0; mg.add(mmon);
+  const mscr=box(.9,.62,.01,M.screen); mscr.position.set(0,0,.05); mg.add(mscr);
+  // blinking cursor on screen
+  const cur=box(.07,.055,.005,mat({color:0x00ff41,emissive:0x00ff41,emissiveIntensity:3}));
+  cur.position.set(-.3,-.21,.06); cur.userData.blink=true; mg.add(cur);
+  const mst=box(.09,.35,.09,M.dark); mst.position.set(0,-.54,0); mg.add(mst);
+  const mbas=box(.48,.05,.28,M.dark); mbas.position.set(0,-.72,0); mg.add(mbas);
+  scene.add(mg);
+  clickables.push({mesh:mmon,name:'terminal'}); clickables.push({mesh:mscr,name:'terminal'});
+  const tgl=new THREE.PointLight(0x00ff41,.55,3); tgl.position.set(1.5,2,-2.8); scene.add(tgl);
+
+  // keyboard on desk
+  const kb=box(.95,.04,.38,M.dark); kb.position.set(0,1.27,-2.1); scene.add(kb);
+  for(let r=0;r<3;r++) for(let c=0;c<10;c++){
+    const key=box(.07,.035,.07,mat({color:0x1a1a1a,roughness:.5,metalness:.8}));
+    key.position.set(-0.4+c*.09,1.3,-2.22+r*.1); scene.add(key);
+  }
+
+  // ── ARCADE MACHINE ──
+  const ag=new THREE.Group(); ag.position.set(3.8,0,-3.6); ag.name='arcade';
+  const abody=box(1.2,3,.8,M.dark); abody.position.y=1.5; ag.add(abody);
+  const ascr=box(.88,.68,.04,M.screenBlue); ascr.position.set(0,2.22,.42); ag.add(ascr);
+  // scanlines on arcade screen
+  for(let i=0;i<6;i++){
+    const sl=box(.82,.02,.005,mat({color:0x00d4ff,emissive:0x00d4ff,emissiveIntensity:.4}));
+    sl.position.set(0,1.88+i*.1,.455); ag.add(sl);
+  }
+  const atop=box(1.25,.32,.65,M.purple); atop.position.set(0,3.16,-.08); ag.add(atop);
+  const atopGlow=box(1.2,.05,.6,M.purple); atopGlow.position.set(0,3,.0); ag.add(atopGlow);
+  // joystick
+  const jb=new THREE.Mesh(new THREE.CylinderGeometry(.12,.15,.05,8),M.dark); jb.position.set(-.2,1.55,.42); ag.add(jb);
+  const js=new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,.3,8),M.green); js.position.set(-.2,1.72,.42); ag.add(js);
+  // buttons
+  [{c:0xff0040,x:.15,y:1.55},{c:0x00ff41,x:.3,y:1.55},{c:0x00d4ff,x:.15,y:1.7},{c:0xffcc00,x:.3,y:1.7}].forEach(({c,x,y})=>{
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(.048,.048,.04,12),mat({color:c,emissive:c,emissiveIntensity:.8}));
+    b.position.set(x,y,.42); ag.add(b);
+  });
+  // neon trim
+  [-.59,.59].forEach(x=>{ const t=box(.04,3,.04,M.blue); t.position.set(x,1.5,.37); ag.add(t); });
+  scene.add(ag);
+  clickables.push({mesh:abody,name:'arcade'}); clickables.push({mesh:ascr,name:'arcade'});
+  const agl=new THREE.PointLight(0x00d4ff,1.2,5); agl.position.set(3.8,2.5,-3); scene.add(agl);
+
+  // ── BILLBOARD ──
+  const bbg=new THREE.Group(); bbg.position.set(-4.2,4.2,-4.8); bbg.name='billboard';
+  const bbf=box(2.8,1.9,.12,M.dark); bbg.add(bbf);
+  const bbs=box(2.6,1.7,.04,M.screenPurple); bbs.position.z=.09; bbg.add(bbs);
+  // glowing border
+  [[-1.4,0],[1.4,0]].forEach(([x])=>{const e=box(.06,1.9,.06,M.purple);e.position.x=x;bbg.add(e);});
+  [[0,.95],[0,-.95]].forEach(([,y])=>{const e=box(2.8,.06,.06,M.purple);e.position.y=y;bbg.add(e);});
+  scene.add(bbg);
+  clickables.push({mesh:bbs,name:'billboard'}); clickables.push({mesh:bbf,name:'billboard'});
+  const bbgl=new THREE.PointLight(0xbf00ff,1.5,7); bbgl.position.set(-4.2,4.5,-4); scene.add(bbgl);
+
+  // ── CHAIR ──
+  const chm=mat({color:0x0d0d1a,roughness:.7,metalness:.4});
+  const chseat=box(.92,.1,.92,chm); chseat.position.set(0,.7,-1.2); scene.add(chseat);
+  const chback=box(.92,1.,.1,chm); chback.position.set(0,1.25,-1.67); scene.add(chback);
+  const charm1=box(.06,.3,.6,chm); charm1.position.set(.5,.95,-1.3); scene.add(charm1);
+  const charm2=charm1.clone(); charm2.position.x=-.5; scene.add(charm2);
+  const chs=box(.93,.05,.06,M.blue); chs.position.set(0,1.66,-1.62); scene.add(chs);
+  [[-.42,.5,-1.2],[.42,.5,-1.2],[-.42,.5,-1.67],[.42,.5,-1.67]].forEach(([x,y,z])=>{
+    const cl=box(.06,.7,.06,chm); cl.position.set(x,y,z); scene.add(cl);
+  });
+
+  // ── COFFEE MUG ──
+  const mugm=mat({color:0x1a1a2a,roughness:.5}); const mugbody=new THREE.Mesh(new THREE.CylinderGeometry(.07,.06,.15,12),mugm);
+  mugbody.position.set(2.1,1.33,-2.7); scene.add(mugbody);
+  const muglid=new THREE.Mesh(new THREE.CylinderGeometry(.065,.065,.02,12),mat({color:0x1a0800,emissive:0x3a1200,emissiveIntensity:.4}));
+  muglid.position.set(2.1,1.41,-2.7); scene.add(muglid);
+
+  // ── FLOOR NEON STRIPS ──
+  for(let i=0;i<5;i++){
+    const fs=box(.2,.04,.06,M.purple); fs.position.set(-3+i*1.6,.04,-.4); scene.add(fs);
+    const fpl=new THREE.PointLight(0xbf00ff,.2,1.5); fpl.position.set(-3+i*1.6,.1,-.4); scene.add(fpl);
+  }
+
+  // ── WALL VERTICAL NEON BARS ──
+  for(let i=0;i<4;i++){
+    const bar=box(.05,5,.05,M.green); bar.position.set(-6.88,4.5,-1+i*1.8); scene.add(bar);
+    const rbar=box(.05,3,.05,M.blue); rbar.position.set(6.88,4,-1+i*2); scene.add(rbar);
+  }
+
+  // ── FLOATING PARTICLES ──
+  for(let i=0;i<40;i++){
+    const pm=mat({color:[0x00ff41,0x00d4ff,0xbf00ff][i%3],emissive:[0x00ff41,0x00d4ff,0xbf00ff][i%3],emissiveIntensity:2});
+    const p=box(.025,.025,.025,pm); p.position.set((Math.random()-.5)*12,Math.random()*5+.5,(Math.random()-.5)*8-2);
+    p.userData.foff=Math.random()*Math.PI*2; p.userData.float=true;
+    scene.add(p);
+  }
+
+  // ── POSTER ON WALL (right) ──
+  const poster=box(1.4,2,.04,mat({color:0x020008,emissive:0xbf00ff,emissiveIntensity:.12}));
+  poster.position.set(6.88,3.5,-2); scene.add(poster);
+
+  // ── AMBIENT + LIGHTS ──
+  scene.add(new THREE.AmbientLight(0x001a06,.9));
+  const dirl=new THREE.DirectionalLight(0x003318,.4); dirl.position.set(2,8,4); dirl.castShadow=true; scene.add(dirl);
+  const fill=new THREE.PointLight(0x000818,2,25); fill.position.set(0,7,1); scene.add(fill);
+  const hemiLight=new THREE.HemisphereLight(0x001a00,0x000010,.3); scene.add(hemiLight);
+}
+
+let clock3=0;
+function renderLoop() {
+  requestAnimationFrame(renderLoop); clock3+=.012;
+  // fps
+  fpsCnt++; const n=performance.now();
+  if(n-fpsT>1000){ document.getElementById('hudFps').textContent=`FPS: ${fpsCnt}`; fpsCnt=0; fpsT=n; }
+  // camera drift
+  camera.position.x+=(camTX*.35-camera.position.x)*.02;
+  camera.position.y+=(3+camTY*.2-camera.position.y)*.02;
+  camera.lookAt(0,1.5,0);
+  // float particles + blink cursor
+  scene.traverse(o=>{
+    if(o.userData.float) o.position.y+=Math.sin(clock3+o.userData.foff)*.003;
+    if(o.userData.blink) o.visible=Math.sin(clock3*5)>0;
+  });
+  renderer.render(scene,camera);
+}
+
+function onMM(e) {
+  mouse3.x=(e.clientX/innerWidth)*2-1;
+  mouse3.y=-(e.clientY/innerHeight)*2+1;
+  camTX=mouse3.x*.5; camTY=mouse3.y*.3;
+  raycaster.setFromCamera(mouse3,camera);
+  const hits=raycaster.intersectObjects(clickables.map(c=>c.mesh));
+  const lbl=document.getElementById('floatLabel');
+  if(hits.length){
+    const found=clickables.find(c=>c.mesh===hits[0].object);
+    if(found&&LABEL_MAP[found.name]){
+      lbl.textContent=LABEL_MAP[found.name].label;
+      lbl.style.left=(e.clientX+16)+'px'; lbl.style.top=(e.clientY-10)+'px'; lbl.style.opacity='1';
+      document.body.style.cursor='pointer'; return;
+    }
+  }
+  lbl.style.opacity='0'; document.body.style.cursor='crosshair';
+}
+
+function onMC(e) {
+  raycaster.setFromCamera(mouse3,camera);
+  const hits=raycaster.intersectObjects(clickables.map(c=>c.mesh));
+  if(hits.length){
+    const found=clickables.find(c=>c.mesh===hits[0].object);
+    if(found&&LABEL_MAP[found.name]) openModal(LABEL_MAP[found.name].modal);
+  }
+}
+
+// ────────────────────────────────────────────────
+//  MODAL HELPERS
+// ────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+// close on overlay click
+document.querySelectorAll('.modal-ov').forEach(ov=>{
+  ov.addEventListener('click',e=>{ if(e.target===ov) ov.classList.remove('active'); });
+});
+
+// ────────────────────────────────────────────────
+//  MINI GAME
+// ────────────────────────────────────────────────
+function checkGame(btn, correct) {
+  document.querySelectorAll('.gopt').forEach(o=>{o.disabled=true;o.style.opacity='.45';});
+  if(correct){
+    btn.classList.add('correct'); btn.style.opacity='1';
+    setTimeout(()=>{ document.getElementById('gameContent').style.display='none'; document.getElementById('gameResult').style.display='block'; },900);
+  } else {
+    btn.classList.add('wrong'); btn.style.opacity='1';
+    setTimeout(()=>{ document.querySelectorAll('.gopt').forEach(o=>{o.disabled=false;o.style.opacity='1';o.classList.remove('wrong','correct');}); },1200);
+  }
+}
+
+// ────────────────────────────────────────────────
+//  QUIZ
+// ────────────────────────────────────────────────
+const QS = [
+  {q:"You get a link: 'FREE Gaming Skin – Click Now!' What do you do?",opts:["Click it immediately","Ignore it","Check the link first"],scores:[32,5,0]},
+  {q:"Your friend's email sends 'invoice.pdf.exe'. You...",opts:["Open it","Call friend to verify","Delete it immediately"],scores:[35,5,0]},
+  {q:"You use the same password on 5 different websites. This is...",opts:["Convenient and fine","Risky if one site is breached","Best practice"],scores:[30,0,30]},
+  {q:"A website shows 'Your PC is infected!' popup with a hotline. You...",opts:["Call the number","Close the tab immediately","Screenshot and investigate"],scores:[40,0,5]},
+  {q:"Safest public Wi-Fi behavior?",opts:["Check bank account","Use VPN for sensitive tasks","Share your hotspot with others"],scores:[35,0,20]},
+];
+let qScore=0, qCur=0;
+
+function initQuiz() {
+  qScore=0; qCur=0;
+  document.getElementById('quizResult').style.display='none';
+  document.getElementById('quizContent').style.display='block';
+  const prog=document.getElementById('quizProg'); prog.innerHTML='';
+  QS.forEach((_,i)=>{ const d=document.createElement('div');d.className='qdot';d.id='qd'+i;prog.appendChild(d); });
+  showQ();
+}
+
+function showQ() {
+  const d=QS[qCur];
+  document.getElementById('quizContent').innerHTML=`
+    <div class="qnum">QUESTION ${qCur+1} / ${QS.length}</div>
+    <div class="qquestion">${d.q}</div>
+    ${d.opts.map((o,i)=>`<button class="qopt" onclick="ansQ(${i})">${o}</button>`).join('')}
+  `;
+  const dot=document.getElementById('qd'+qCur); if(dot) dot.classList.add('active');
+}
+
+function ansQ(i) {
+  qScore+=QS[qCur].scores[i]; qCur++;
+  if(qCur<QS.length) showQ(); else showQResult();
+}
+
+function showQResult() {
+  const pct=Math.min(100,Math.round(qScore/170*100));
+  document.getElementById('quizContent').style.display='none';
+  document.getElementById('quizResult').style.display='block';
+  const col=pct>=70?'#ff0040':pct>=40?'#ffcc00':'#00ff41';
+  const msg=pct>=70?'🚨 You are highly hackable. Basic cyber hygiene could save your digital life. Learn how hackers think — before they target you.':
+    pct>=40?'⚠️ Dangerous blind spots exist. A motivated attacker could still compromise you. Time to level up your skills.':
+    '✅ Solid instincts! But hackers constantly evolve tactics. Stay ahead of the curve with advanced training.';
+  document.getElementById('hackScore').textContent=pct+'%';
+  document.getElementById('hackScore').style.cssText=`color:${col};text-shadow:0 0 30px ${col}`;
+  document.getElementById('hackFill').style.cssText=`background:${col};box-shadow:0 0 12px ${col}`;
+  document.getElementById('hackMsg').textContent=msg;
+  setTimeout(()=>{ document.getElementById('hackFill').style.width=pct+'%'; },100);
+}
+
+// ────────────────────────────────────────────────
+//  TERMINAL
+// ────────────────────────────────────────────────
+function checkTerminal() {
+  const v=document.getElementById('termInput').value.trim().toLowerCase();
+  const r=document.getElementById('termResult');
+  if(v==='80'||v==='port 80'||v==='http port 80'){
+    r.innerHTML=`<div style="animation:fadeIn .3s forwards;opacity:0;">
+      <div style="color:var(--neon-green);">[✓] Answer correct</div>
+      <div style="font-size:1.25rem;margin:.5rem 0;text-shadow:0 0 20px var(--neon-green);color:var(--neon-green);">██ ACCESS GRANTED ██</div>
+      <div style="color:rgba(0,255,65,.55);font-size:.8rem;">Redirecting to workshop registration...</div>
+    </div>`;
+    r.querySelector('div').style.opacity='1';
+    setTimeout(()=>{ closeModal('terminalModal'); openModal('signupModal'); },1400);
+  } else if(v!==''){
+    r.innerHTML=`<div style="color:#ff0040;">[✗] Incorrect. Try again. Hint: it's a number.</div>`;
+    document.getElementById('termInput').value='';
+  }
+}
+
+// ────────────────────────────────────────────────
+//  SIGNUP → GOOGLE SHEETS
+// ────────────────────────────────────────────────
+function submitForm() {
+  const name=document.getElementById('fname').value.trim();
+  const email=document.getElementById('femail').value.trim();
+  const phone=document.getElementById('fphone').value.trim();
+  const school=document.getElementById('fschool').value.trim();
+  if(!name||!email){ alert('Name and Email are required.'); return; }
+
+  // ══════════════════════════════════════════════
+  // GOOGLE SHEETS INTEGRATION (no backend needed)
+  // ══════════════════════════════════════════════
+  // STEP 1: Create a Google Sheet
+  // STEP 2: Extensions → Apps Script → paste this code:
+  //
+  //   function doPost(e) {
+  //     const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  //     const d = JSON.parse(e.postData.contents);
+  //     sheet.appendRow([new Date(), d.name, d.email, d.phone, d.school]);
+  //     return ContentService
+  //       .createTextOutput(JSON.stringify({status:'ok'}))
+  //       .setMimeType(ContentService.MimeType.JSON);
+  //   }
+  //
+  // STEP 3: Deploy → New deployment → Web App
+  //         Execute as: Me | Who has access: Anyone
+  // STEP 4: Copy the deployment URL and replace below:
+
+  const SHEET_URL = 'https://script.google.com/macros/s/AKfycbx1LMISWVoSKNzAVmM2EE6xC-f1di8Nf9k4jUQ9bS6kYlRDmnZQnY3lfWsW-Mlw0cP2/exec';
+
+  // Show success immediately (works in demo mode)
+  showMissionOk();
+
+  // Uncomment to actually send to Google Sheets:
+  // fetch(SHEET_URL, {
+  //   method:'POST',
+  //   headers:{'Content-Type':'application/json'},
+  //   body:JSON.stringify({name,email,phone,school})
+  // }).catch(()=>{}); // fail silently
+}
+
+function showMissionOk() {
+  document.getElementById('formSection').style.display='none';
+  document.getElementById('missionOk').style.display='block';
+}
+</script>
+</body>
+</html>

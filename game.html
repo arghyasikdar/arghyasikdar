@@ -1,0 +1,322 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Arghya's Vibecoded Arcade</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+
+body{
+margin:0;
+overflow:hidden;
+font-family:'Space Grotesk',sans-serif;
+color:white;
+background:linear-gradient(180deg,#2b0b45,#4c1d95,#1e1b4b);
+}
+
+/* THREEJS CANVAS */
+
+#canvas{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+z-index:0;
+}
+
+/* UI LAYER */
+
+#ui{
+position:absolute;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+z-index:5;
+text-align:center;
+width:90%;
+max-width:900px;
+}
+
+/* TITLE */
+
+h1{
+font-size:46px;
+font-weight:700;
+letter-spacing:1px;
+margin-bottom:10px;
+text-shadow:0 0 20px #ff66ff;
+}
+
+/* SUBTITLE */
+
+.subtitle{
+font-size:18px;
+opacity:.9;
+margin-bottom:45px;
+line-height:1.5;
+}
+
+/* GAME GRID */
+
+.games{
+display:flex;
+justify-content:center;
+gap:35px;
+flex-wrap:wrap;
+}
+
+/* NEON BUTTON CARDS */
+
+.card{
+width:230px;
+padding:22px;
+border-radius:12px;
+cursor:pointer;
+text-align:center;
+
+background:rgba(255,255,255,0.05);
+border:2px solid rgba(255,255,255,0.2);
+
+backdrop-filter:blur(10px);
+
+transition:all .25s ease;
+}
+
+.card:hover{
+transform:translateY(-10px) scale(1.04);
+box-shadow:
+0 0 20px #ff5edc,
+0 0 40px #9b5cff;
+}
+
+/* GAME TITLES */
+
+.card h2{
+margin-bottom:8px;
+font-size:20px;
+}
+
+/* DESCRIPTION */
+
+.card p{
+font-size:14px;
+opacity:.85;
+}
+
+/* NEON COLORS */
+
+.tyler{
+border-color:#ff66ff;
+box-shadow:0 0 15px #ff66ff inset;
+}
+
+.wangan{
+border-color:#00ffff;
+box-shadow:0 0 15px #00ffff inset;
+}
+
+.dino{
+border-color:#00ff99;
+box-shadow:0 0 15px #00ff99 inset;
+}
+
+/* FOOTER */
+
+.footer{
+margin-top:50px;
+font-size:14px;
+opacity:.7;
+}
+
+</style>
+</head>
+
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div id="ui">
+
+<h1>Hi, I'm Arghya Sikdar</h1>
+
+<div class="subtitle">
+I sometimes <b>VibeCode</b> the most random games for the web.<br>
+Retro ideas, strange mechanics, questionable difficulty.<br>
+Pick a game and see what happens.
+</div>
+
+<div class="games">
+
+<div class="card tyler" onclick="go('tyler.html')">
+<h2>Tyler</h2>
+<p>80's inspired neon arcade fighting game. With a twist: It's nearly impossible to win.</p>
+</div>
+
+<div class="card wangan" onclick="go('drive-n.html')">
+<h2>DRIVE N</h2>
+<p>A silly city-pop inspired highway racing game.</p>
+</div>
+
+<div class="card dino" onclick="go('hackademia.html')">
+<h2>Or Just Play a Cyber Security Quiz?</h2>
+<p>Test your cybersecurity knowledge<br>Let me see how Delulu are you!</p>
+</div>
+
+</div>
+
+<div class="footer">
+Dream-Pop Arcade · Wes Anderson Symmetry · WebGL Chaos
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+
+<script>
+
+/* THREEJS SETUP */
+
+const scene = new THREE.Scene()
+
+const camera = new THREE.PerspectiveCamera(
+60,
+window.innerWidth/window.innerHeight,
+0.1,
+1000
+)
+
+camera.position.z = 8
+
+const renderer = new THREE.WebGLRenderer({
+canvas:document.getElementById("canvas"),
+antialias:true
+})
+
+renderer.setSize(window.innerWidth,window.innerHeight)
+
+renderer.toneMapping = THREE.ACESFilmicToneMapping
+renderer.toneMappingExposure = 1.3
+renderer.outputEncoding = THREE.sRGBEncoding
+
+/* LIGHTS */
+
+const ambient = new THREE.AmbientLight(0xffffff,.7)
+scene.add(ambient)
+
+const point = new THREE.PointLight(0xff88ff,2)
+point.position.set(5,5,5)
+scene.add(point)
+
+/* FLOATING ARCADE CARTRIDGES */
+
+const group = new THREE.Group()
+
+const geometry = new THREE.BoxGeometry(1.2,0.8,.25)
+
+const colors=[
+0xff66ff,
+0x00ffff,
+0xff99cc,
+0x66ffcc
+]
+
+for(let i=0;i<12;i++){
+
+const material=new THREE.MeshStandardMaterial({
+color:colors[Math.floor(Math.random()*colors.length)],
+metalness:.4,
+roughness:.3,
+emissive:colors[Math.floor(Math.random()*colors.length)],
+emissiveIntensity:.4
+})
+
+const cube=new THREE.Mesh(geometry,material)
+
+cube.position.x=(Math.random()-0.5)*16
+cube.position.y=(Math.random()-0.5)*10
+cube.position.z=(Math.random()-0.5)*6
+
+cube.rotation.x=Math.random()*3
+cube.rotation.y=Math.random()*3
+
+group.add(cube)
+
+}
+
+scene.add(group)
+
+/* PARTICLE FIELD */
+
+const particleCount=500
+
+const particlesGeometry=new THREE.BufferGeometry()
+
+const posArray=new Float32Array(particleCount*3)
+
+for(let i=0;i<particleCount*3;i++){
+posArray[i]=(Math.random()-0.5)*40
+}
+
+particlesGeometry.setAttribute(
+'position',
+new THREE.BufferAttribute(posArray,3)
+)
+
+const particlesMaterial=new THREE.PointsMaterial({
+size:.04,
+color:0xffffff
+})
+
+const particles=new THREE.Points(
+particlesGeometry,
+particlesMaterial
+)
+
+scene.add(particles)
+
+/* ANIMATION */
+
+function animate(){
+
+requestAnimationFrame(animate)
+
+group.rotation.y+=0.0015
+group.rotation.x+=0.0008
+
+particles.rotation.y+=0.0003
+
+renderer.render(scene,camera)
+
+}
+
+animate()
+
+/* RESIZE */
+
+window.addEventListener("resize",()=>{
+
+camera.aspect=window.innerWidth/window.innerHeight
+camera.updateProjectionMatrix()
+
+renderer.setSize(window.innerWidth,window.innerHeight)
+
+})
+
+/* GAME LINKS */
+
+function go(url){
+
+window.location.href=url
+
+}
+
+</script>
+
+</body>
+</html>
+```
